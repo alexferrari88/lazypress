@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"reflect"
 	"strconv"
 	"strings"
@@ -50,7 +51,8 @@ func createPDFHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	var p PDF
 
-	if err := loadPDFSettings(r, &p.Settings); err != nil {
+	params := urlQueryToMap(r.URL.Query())
+	if err := p.loadSettings(params); err != nil {
 		// we just log the error and continue with defaults
 		log.Println(err)
 		p.Settings = page.PrintToPDFParams{}
@@ -64,11 +66,19 @@ func createPDFHandler(w http.ResponseWriter, r *http.Request) {
 	p.FromChrome(body).saveToFile("test.pdf")
 }
 
-func loadPDFSettings(r *http.Request, settings *page.PrintToPDFParams) error {
-	if err := queryParamsToStruct(r, settings, "json"); err != nil {
+func (p *PDF) loadSettings(params map[string]string) error {
+	if err := queryParamsToStruct(params, &p.Settings, "json"); err != nil {
 		return err
 	}
 	return nil
+}
+
+func urlQueryToMap(query url.Values) map[string]string {
+	params := make(map[string]string, len(query))
+	for k, v := range query {
+		params[k] = v[0]
+	}
+	return params
 }
 
 func validateCreatePDFRequest(w http.ResponseWriter, r *http.Request) error {
@@ -105,7 +115,7 @@ func sanitizeHTMLBody(body []byte) []byte {
 	return policy.SanitizeBytes(body)
 }
 
-func queryParamsToStruct(r *http.Request, d any, tagStr string) error {
+func queryParamsToStruct(params map[string]string, d any, tagStr string) error {
 	// From https://medium.com/wesionary-team/reflections-tutorial-query-string-to-struct-parser-in-go-b2f858f99ea1
 	var err error
 	dType := reflect.TypeOf(d)
@@ -118,8 +128,8 @@ func queryParamsToStruct(r *http.Request, d any, tagStr string) error {
 		key := strings.Replace(field.Tag.Get(tagStr), ",omitempty", "", -1)
 		kind := field.Type.Kind()
 
-		queryParam := r.URL.Query().Get(key)
-		if queryParam == "" {
+		settingVal, ok := params[key]
+		if !ok {
 			continue
 		}
 
@@ -128,10 +138,10 @@ func queryParamsToStruct(r *http.Request, d any, tagStr string) error {
 		switch kind {
 		case reflect.String:
 			if fieldVal.CanSet() {
-				fieldVal.SetString(queryParam)
+				fieldVal.SetString(settingVal)
 			}
 		case reflect.Int:
-			intVal, err := strconv.ParseInt(queryParam, 10, 64)
+			intVal, err := strconv.ParseInt(settingVal, 10, 64)
 			if err != nil {
 				return err
 			}
@@ -139,7 +149,7 @@ func queryParamsToStruct(r *http.Request, d any, tagStr string) error {
 				fieldVal.SetInt(intVal)
 			}
 		case reflect.Bool:
-			boolVal, err := strconv.ParseBool(queryParam)
+			boolVal, err := strconv.ParseBool(settingVal)
 			if err != nil {
 				return err
 			}
@@ -147,7 +157,7 @@ func queryParamsToStruct(r *http.Request, d any, tagStr string) error {
 				fieldVal.SetBool(boolVal)
 			}
 		case reflect.Float64:
-			floatVal, err := strconv.ParseFloat(queryParam, 64)
+			floatVal, err := strconv.ParseFloat(settingVal, 64)
 			if err != nil {
 				return err
 			}
@@ -157,7 +167,7 @@ func queryParamsToStruct(r *http.Request, d any, tagStr string) error {
 		case reflect.Struct:
 			if fieldVal.CanSet() {
 				val := reflect.New(field.Type)
-				err := json.Unmarshal([]byte(queryParam), val.Interface())
+				err := json.Unmarshal([]byte(settingVal), val.Interface())
 				if err != nil {
 					return err
 				}
