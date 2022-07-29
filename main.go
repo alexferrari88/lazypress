@@ -75,7 +75,7 @@ func runChrome(html []byte) {
 
 				// create the pdf
 				if err := chromedp.Run(ctx, chromedp.ActionFunc(func(ctx context.Context) error {
-					buf, _, err := page.PrintToPDF().WithPrintBackground(true).Do(ctx)
+					buf, _, err := page.PrintToPDF().WithPrintBackground(true).WithLandscape(true).Do(ctx)
 					if err != nil {
 						return err
 					}
@@ -122,6 +122,12 @@ func loadHTMLInBrowser(html []byte, ts *httptest.Server) chromedp.Tasks {
 			return nil
 		}),
 		chromedp.Navigate(ts.URL),
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			if err := emulation.SetDeviceMetricsOverride(1920, 1080, 0, false).Do(ctx); err != nil {
+				return err
+			}
+			return nil
+		}),
 	}
 }
 
@@ -142,7 +148,7 @@ func createPDFHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	body, err := ioutil.ReadAll(r.Body)
-	body = sanitizeBody(body)
+	body = sanitizeHTMLBody(body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -175,7 +181,7 @@ func validateCreatePDFRequest(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func sanitizeBody(body []byte) []byte {
+func sanitizeHTMLBody(body []byte) []byte {
 	policy := bluemonday.UGCPolicy()
 	policy.AllowElements("html", "head", "title", "body", "style")
 	policy.AllowAttrs("style").OnElements("body", "table", "tr", "td", "p", "a", "font", "image")
