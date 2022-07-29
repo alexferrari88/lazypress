@@ -32,7 +32,6 @@ func (p PDF) saveToFile(filename string) {
 func InitServer(port int) {
 	log.Println("Starting server on port", port)
 	http.HandleFunc("/convert", createPDFHandler)
-	http.HandleFunc("/mapper", mapperHandler)
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil); err != nil {
 		log.Fatal(err)
 	}
@@ -56,7 +55,6 @@ func createPDFHandler(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		p.Settings = page.PrintToPDFParams{}
 	}
-	log.Println("PDF settings:", p.Settings) // debug
 	body, err := readRequest(r.Body)
 	body = sanitizeHTMLBody(body)
 	if err != nil {
@@ -105,10 +103,6 @@ func sanitizeHTMLBody(body []byte) []byte {
 	policy.AllowAttrs("name").OnElements("meta")
 	policy.AllowAttrs("content").OnElements("meta")
 	return policy.SanitizeBytes(body)
-}
-
-func mapperHandler(w http.ResponseWriter, r *http.Request) {
-
 }
 
 func queryParamsToStruct(r *http.Request, d any, tagStr string) error {
