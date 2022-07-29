@@ -29,8 +29,8 @@ type settings struct {
 }
 
 type pdf struct {
-	content []byte
-	settings
+	content  []byte
+	settings page.PrintToPDFParams
 }
 
 func (p pdf) saveToFile(filename string) {
@@ -75,7 +75,7 @@ func runChrome(html []byte) {
 
 				// create the pdf
 				if err := chromedp.Run(ctx, chromedp.ActionFunc(func(ctx context.Context) error {
-					buf, _, err := page.PrintToPDF().WithPrintBackground(true).WithLandscape(true).Do(ctx)
+					buf, _, err := p.settings.WithPrintBackground(true).Do(ctx)
 					if err != nil {
 						return err
 					}
