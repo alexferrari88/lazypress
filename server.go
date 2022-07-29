@@ -106,6 +106,7 @@ func sanitizeHTMLBody(body []byte) []byte {
 }
 
 func queryParamsToStruct(r *http.Request, d any, tagStr string) error {
+	// From https://medium.com/wesionary-team/reflections-tutorial-query-string-to-struct-parser-in-go-b2f858f99ea1
 	var err error
 	dType := reflect.TypeOf(d)
 	if dType.Elem().Kind() != reflect.Struct {
