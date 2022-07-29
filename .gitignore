@@ -12,6 +12,9 @@ chrome-linux/
 # Test binary, built with `go test -c`
 *.test
 
+# Test files
+*.pdf
+
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
