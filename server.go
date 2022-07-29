@@ -1,23 +1,27 @@
 ﻿package lazypress
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"reflect"
+	"strconv"
+	"strings"
 
 	"github.com/chromedp/cdproto/page"
 	"github.com/microcosm-cc/bluemonday"
 )
 
-type pdf struct {
+type PDF struct {
 	content  []byte
-	settings page.PrintToPDFParams
+	Settings page.PrintToPDFParams
 }
 
-func (p pdf) saveToFile(filename string) {
+func (p PDF) saveToFile(filename string) {
 	err := ioutil.WriteFile(filename, p.content, 0644)
 	if err != nil {
 		log.Println(err)
@@ -28,6 +32,7 @@ func (p pdf) saveToFile(filename string) {
 func InitServer(port int) {
 	log.Println("Starting server on port", port)
 	http.HandleFunc("/convert", createPDFHandler)
+	http.HandleFunc("/mapper", mapperHandler)
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil); err != nil {
 		log.Fatal(err)
 	}
@@ -44,14 +49,28 @@ func createPDFHandler(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
+	var p PDF
 
+	if err := loadPDFSettings(r, &p.Settings); err != nil {
+		// we just log the error and continue with defaults
+		log.Println(err)
+		p.Settings = page.PrintToPDFParams{}
+	}
+	log.Println("PDF settings:", p.Settings) // debug
 	body, err := readRequest(r.Body)
 	body = sanitizeHTMLBody(body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	runChrome(body)
+	p.FromChrome(body).saveToFile("test.pdf")
+}
+
+func loadPDFSettings(r *http.Request, settings *page.PrintToPDFParams) error {
+	if err := queryParamsToStruct(r, settings, "json"); err != nil {
+		return err
+	}
+	return nil
 }
 
 func validateCreatePDFRequest(w http.ResponseWriter, r *http.Request) error {
@@ -86,4 +105,70 @@ func sanitizeHTMLBody(body []byte) []byte {
 	policy.AllowAttrs("name").OnElements("meta")
 	policy.AllowAttrs("content").OnElements("meta")
 	return policy.SanitizeBytes(body)
+}
+
+func mapperHandler(w http.ResponseWriter, r *http.Request) {
+
+}
+
+func queryParamsToStruct(r *http.Request, d any, tagStr string) error {
+	var err error
+	dType := reflect.TypeOf(d)
+	if dType.Elem().Kind() != reflect.Struct {
+		return errors.New("input must be a struct")
+	}
+	dValue := reflect.ValueOf(d)
+	for i := 0; i < dType.Elem().NumField(); i++ {
+		field := dType.Elem().Field(i)
+		key := strings.Replace(field.Tag.Get(tagStr), ",omitempty", "", -1)
+		kind := field.Type.Kind()
+
+		queryParam := r.URL.Query().Get(key)
+		if queryParam == "" {
+			continue
+		}
+
+		fieldVal := dValue.Elem().Field(i)
+
+		switch kind {
+		case reflect.String:
+			if fieldVal.CanSet() {
+				fieldVal.SetString(queryParam)
+			}
+		case reflect.Int:
+			intVal, err := strconv.ParseInt(queryParam, 10, 64)
+			if err != nil {
+				return err
+			}
+			if fieldVal.CanSet() {
+				fieldVal.SetInt(intVal)
+			}
+		case reflect.Bool:
+			boolVal, err := strconv.ParseBool(queryParam)
+			if err != nil {
+				return err
+			}
+			if fieldVal.CanSet() {
+				fieldVal.SetBool(boolVal)
+			}
+		case reflect.Float64:
+			floatVal, err := strconv.ParseFloat(queryParam, 64)
+			if err != nil {
+				return err
+			}
+			if fieldVal.CanSet() {
+				fieldVal.SetFloat(floatVal)
+			}
+		case reflect.Struct:
+			if fieldVal.CanSet() {
+				val := reflect.New(field.Type)
+				err := json.Unmarshal([]byte(queryParam), val.Interface())
+				if err != nil {
+					return err
+				}
+				fieldVal.Set(val.Elem())
+			}
+		}
+	}
+	return err
 }

@@ -16,9 +16,8 @@ import (
 	"github.com/chromedp/chromedp"
 )
 
-func runChrome(html []byte) {
+func (p *PDF) FromChrome(html []byte) *PDF {
 	var wg sync.WaitGroup
-	var p pdf
 
 	// locate chrome executable path
 	dir, dirError := os.Getwd()
@@ -50,7 +49,7 @@ func runChrome(html []byte) {
 
 				// create the pdf
 				if err := chromedp.Run(ctx, chromedp.ActionFunc(func(ctx context.Context) error {
-					buf, _, err := p.settings.WithPrintBackground(true).Do(ctx)
+					buf, _, err := p.Settings.Do(ctx)
 					if err != nil {
 						return err
 					}
@@ -77,7 +76,7 @@ func runChrome(html []byte) {
 
 	wg.Wait()
 
-	p.saveToFile("test.pdf")
+	return p
 
 }
 
