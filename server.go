@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -20,19 +21,46 @@ import (
 type PDF struct {
 	content  []byte
 	Settings page.PrintToPDFParams
+	exporter io.Writer
+	closer   io.Closer
 }
 
-func (p PDF) saveToFile(filename string) {
-	err := ioutil.WriteFile(filename, p.content, 0644)
+func (p PDF) Export() error {
+	if p.exporter == nil {
+		return fmt.Errorf("No exporter set")
+	}
+	_, err := p.exporter.Write(p.content)
+	if err != nil {
+		return fmt.Errorf("Could not export PDF: %v", err)
+	}
+	log.Println("PDF exported")
+	if p.closer != nil {
+		p.closer.Close()
+	}
+	return nil
+}
+
+func (p *PDF) createFile(filename string) (io.WriteCloser, error) {
+	dir, err := os.UserHomeDir()
 	if err != nil {
 		log.Println(err)
+		// falback to tmp dir
+		dir = os.TempDir()
 	}
-	log.Println("PDF saved")
+	if filename == "" {
+		filename = "lazypress*.pdf"
+	}
+	file, err := ioutil.TempFile(dir, filename)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Println("Created file", file.Name())
+	return file, nil
 }
 
 func InitServer(port int) {
 	log.Println("Starting server on port", port)
-	http.HandleFunc("/convert", createPDFHandler)
+	http.HandleFunc("/convert", createPDFServerHandler)
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil); err != nil {
 		log.Fatal(err)
 	}
@@ -44,7 +72,7 @@ func readRequest(r io.ReadCloser) ([]byte, error) {
 	return body, err
 }
 
-func createPDFHandler(w http.ResponseWriter, r *http.Request) {
+func createPDFServerHandler(w http.ResponseWriter, r *http.Request) {
 	if err := validateCreatePDFRequest(w, r); err != nil {
 		log.Println(err)
 		return
@@ -52,7 +80,7 @@ func createPDFHandler(w http.ResponseWriter, r *http.Request) {
 	var p PDF
 
 	params := urlQueryToMap(r.URL.Query())
-	if err := p.loadSettings(params); err != nil {
+	if err := p.loadSettings(params, w); err != nil {
 		// we just log the error and continue with defaults
 		log.Println(err)
 		p.Settings = page.PrintToPDFParams{}
@@ -63,12 +91,43 @@ func createPDFHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	p.FromChrome(body).saveToFile("test.pdf")
+	p.GenerateWithChrome(body)
+	if p.content == nil {
+		log.Println("Could not generate PDF")
+		http.Error(w, "Could not create PDF", http.StatusInternalServerError)
+		return
+	}
+	if err := p.Export(); err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
-func (p *PDF) loadSettings(params map[string]string) error {
+func (p *PDF) loadSettings(params map[string]string, w io.Writer) error {
 	if err := queryParamsToStruct(params, &p.Settings, "json"); err != nil {
 		return err
+	}
+	outputType := strings.ToLower(params["outputType"])
+	switch outputType {
+	case "file":
+		file, err := p.createFile(params["filename"])
+		if err != nil {
+			p.exporter = w
+			return nil
+		}
+		p.exporter = file
+		p.closer = file
+	case "download":
+		p.exporter = w
+	case "s3":
+		// TODO: implement
+		p.exporter = w
+	case "email":
+		// TODO: implement
+		p.exporter = w
+	default:
+		p.exporter = w
 	}
 	return nil
 }
@@ -117,6 +176,7 @@ func sanitizeHTMLBody(body []byte) []byte {
 
 func queryParamsToStruct(params map[string]string, d any, tagStr string) error {
 	// From https://medium.com/wesionary-team/reflections-tutorial-query-string-to-struct-parser-in-go-b2f858f99ea1
+
 	var err error
 	dType := reflect.TypeOf(d)
 	if dType.Elem().Kind() != reflect.Struct {

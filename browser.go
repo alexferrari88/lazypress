@@ -16,7 +16,7 @@ import (
 	"github.com/chromedp/chromedp"
 )
 
-func (p *PDF) FromChrome(html []byte) *PDF {
+func (p *PDF) GenerateWithChrome(html []byte) *PDF {
 	var wg sync.WaitGroup
 
 	// locate chrome executable path
@@ -54,7 +54,7 @@ func (p *PDF) FromChrome(html []byte) *PDF {
 						return err
 					}
 					p.content = buf
-					log.Println("PDF created")
+					log.Println("PDF content created")
 					return nil
 				})); err != nil {
 					log.Println(err)
