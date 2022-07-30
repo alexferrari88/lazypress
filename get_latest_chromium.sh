@@ -26,5 +26,5 @@ curl -# $ZIP_URL > $ZIP_FILE
 echo "unzipping.."
 unzip $ZIP_FILE
 popd
-rm -f ./latest
-ln -s $REVISION/chrome-linux/ ./latest
+rm -rf $REVISION
+rm -f $ZIP_FILE

@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"path"
 	"sync"
 
 	"github.com/chromedp/cdproto/emulation"
@@ -14,24 +13,25 @@ import (
 	"github.com/chromedp/chromedp"
 )
 
-func (p *PDF) GenerateWithChrome(html []byte) *PDF {
+func (p *PDF) GenerateWithChrome(html []byte, execPath string) *PDF {
 	var wg sync.WaitGroup
+	var allocatorCtx context.Context
+	var allocatorCancel context.CancelFunc
 
-	// locate chrome executable path
-	dir, dirError := os.Getwd()
-	if dirError != nil {
-		log.Fatalln(dirError)
-	}
-	opt := []func(allocator *chromedp.ExecAllocator){
-		chromedp.ExecPath(path.Join(dir, "../chrome-linux", "chrome")),
-	}
+	if execPath != "" {
+		opt := []func(allocator *chromedp.ExecAllocator){
+			chromedp.ExecPath(execPath),
+		}
 
-	// create context
-	allocatorCtx, allocatorCancel := chromedp.NewExecAllocator(
-		context.Background(),
-		append(opt, chromedp.DefaultExecAllocatorOptions[:]...)[:]...,
-	)
-	defer allocatorCancel()
+		// create context
+		allocatorCtx, allocatorCancel = chromedp.NewExecAllocator(
+			context.Background(),
+			append(opt, chromedp.DefaultExecAllocatorOptions[:]...)[:]...,
+		)
+		defer allocatorCancel()
+	} else {
+		allocatorCtx = context.Background()
+	}
 
 	ctx, cancel := chromedp.NewContext(allocatorCtx)
 	defer cancel()

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"reflect"
 	"strconv"
 	"strings"
@@ -91,7 +92,13 @@ func createPDFServerHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	p.GenerateWithChrome(body)
+	// locate chrome executable path
+	dir, dirError := os.Getwd()
+	if dirError != nil {
+		log.Fatalln(dirError)
+	}
+	chromePath := path.Join(dir, "chrome-linux", "chrome")
+	p.GenerateWithChrome(body, chromePath)
 	if p.content == nil {
 		log.Println("Could not generate PDF")
 		http.Error(w, "Could not create PDF", http.StatusInternalServerError)
