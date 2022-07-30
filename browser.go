@@ -2,13 +2,11 @@
 
 import (
 	"context"
-	"io"
+	"fmt"
+	"io/ioutil"
 	"log"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path"
-	"strings"
 	"sync"
 
 	"github.com/chromedp/cdproto/emulation"
@@ -22,7 +20,7 @@ func (p *PDF) GenerateWithChrome(html []byte) *PDF {
 	// locate chrome executable path
 	dir, dirError := os.Getwd()
 	if dirError != nil {
-		panic(dirError)
+		log.Fatalln(dirError)
 	}
 	opt := []func(allocator *chromedp.ExecAllocator){
 		chromedp.ExecPath(path.Join(dir, "../chrome-linux", "chrome")),
@@ -65,13 +63,20 @@ func (p *PDF) GenerateWithChrome(html []byte) *PDF {
 		}
 	})
 
-	// create test server with the html we passed in
-	ts := httptest.NewServer(writeHTML(html))
-	defer ts.Close()
+	// save the HTML content to a temporary file
+	htmlFile, err := ioutil.TempFile("", "lazypress*.html")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	defer os.Remove(htmlFile.Name())
+	defer htmlFile.Close()
+	if _, err := htmlFile.Write(html); err != nil {
+		log.Fatalln(err)
+	}
 
 	// start browser and load html
-	if err := chromedp.Run(ctx, loadHTMLInBrowser(html, ts)); err != nil {
-		log.Fatal(err)
+	if err := chromedp.Run(ctx, loadHTMLInBrowser(html, htmlFile.Name())); err != nil {
+		log.Fatalln(err)
 	}
 
 	wg.Wait()
@@ -80,14 +85,7 @@ func (p *PDF) GenerateWithChrome(html []byte) *PDF {
 
 }
 
-func writeHTML(content []byte) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html")
-		io.WriteString(w, strings.TrimSpace(string(content)))
-	})
-}
-
-func loadHTMLInBrowser(html []byte, ts *httptest.Server) chromedp.Tasks {
+func loadHTMLInBrowser(html []byte, fileName string) chromedp.Tasks {
 	return chromedp.Tasks{
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			if err := emulation.SetScriptExecutionDisabled(true).Do(ctx); err != nil {
@@ -95,7 +93,7 @@ func loadHTMLInBrowser(html []byte, ts *httptest.Server) chromedp.Tasks {
 			}
 			return nil
 		}),
-		chromedp.Navigate(ts.URL),
+		chromedp.Navigate(fmt.Sprintf("file://%s", fileName)),
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			if err := emulation.SetDeviceMetricsOverride(1920, 1080, 0, false).Do(ctx); err != nil {
 				return err
