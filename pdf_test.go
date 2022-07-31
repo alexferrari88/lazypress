@@ -1,9 +1,7 @@
-﻿package lazypress_test
+﻿package lazypress
 
 import (
 	"testing"
-
-	"github.com/alexferrari88/lazypress"
 )
 
 type mockExporter struct {
@@ -16,7 +14,7 @@ func (m *mockExporter) Write(p []byte) (n int, err error) {
 }
 
 func TestShouldErrorWhenExporterIsNotDefined(t *testing.T) {
-	var p lazypress.PDF
+	var p PDF
 	err := p.Export()
 	if err == nil {
 		t.Error("Expected error when exporter is not defined")
@@ -24,7 +22,7 @@ func TestShouldErrorWhenExporterIsNotDefined(t *testing.T) {
 }
 
 func TestShouldWriteWithExporter(t *testing.T) {
-	var p lazypress.PDF
+	var p PDF
 	m := &mockExporter{}
 	p.Exporter = m
 	content := []byte("<html><body>Hello World</body></html>")
