@@ -47,7 +47,9 @@ func createPDFServerHandler(w http.ResponseWriter, r *http.Request) {
 		p.Settings = page.PrintToPDFParams{}
 	}
 	body, err := readRequest(r.Body)
-	body = sanitizeHTMLBody(body)
+	if p.sanitize {
+		body = sanitizeHTMLBody(body)
+	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

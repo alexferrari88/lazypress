@@ -16,6 +16,8 @@ type PDF struct {
 	Settings page.PrintToPDFParams
 	exporter io.Writer
 	closer   io.Closer
+	filePath string
+	sanitize bool
 }
 
 func (p PDF) Export() error {
@@ -47,7 +49,8 @@ func (p *PDF) createFile(filename string) (io.WriteCloser, error) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Println("Created file", file.Name())
+	p.filePath = file.Name()
+	log.Println("Created file", p.filePath)
 	return file, nil
 }
 
@@ -55,7 +58,10 @@ func (p *PDF) loadSettings(params map[string]string, w io.Writer) error {
 	if err := queryParamsToStruct(params, &p.Settings, "json"); err != nil {
 		return err
 	}
-	outputType := strings.ToLower(params["outputType"])
+	if params["sanitize"] == "true" {
+		p.sanitize = true
+	}
+	outputType := strings.ToLower(params["output"])
 	switch outputType {
 	case "file":
 		file, err := p.createFile(params["filename"])
