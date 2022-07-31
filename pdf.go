@@ -43,7 +43,10 @@ func (p *PDF) createFile(filename string) (io.WriteCloser, error) {
 		dir = os.TempDir()
 	}
 	if filename == "" {
-		filename = "lazypress*.pdf"
+		filename = "lazypress"
+	}
+	if !strings.HasSuffix(filename, "*.pdf") {
+		filename = filename + "*.pdf"
 	}
 	file, err := ioutil.TempFile(dir, filename)
 	if err != nil {
@@ -54,11 +57,11 @@ func (p *PDF) createFile(filename string) (io.WriteCloser, error) {
 	return file, nil
 }
 
-func (p *PDF) loadSettings(params map[string]string, w io.Writer) error {
+func (p *PDF) loadSettings(params map[string]string, w io.Writer, c io.Closer) error {
 	if err := queryParamsToStruct(params, &p.Settings, "json"); err != nil {
 		return err
 	}
-	if params["sanitize"] == "true" {
+	if strings.ToLower(params["sanitize"]) == "true" {
 		p.Sanitize = true
 	}
 	outputType := strings.ToLower(params["output"])
@@ -67,20 +70,30 @@ func (p *PDF) loadSettings(params map[string]string, w io.Writer) error {
 		file, err := p.createFile(params["filename"])
 		if err != nil {
 			p.Exporter = w
+			p.Closer = c
 			return nil
 		}
 		p.Exporter = file
 		p.Closer = file
 	case "download":
 		p.Exporter = w
+		p.Closer = c
 	case "s3":
 		// TODO: implement
 		p.Exporter = w
+		p.Closer = c
 	case "email":
 		// TODO: implement
 		p.Exporter = w
+		p.Closer = c
 	default:
-		p.Exporter = w
+		if w != nil {
+			p.Exporter = w
+			p.Closer = c
+		} else {
+			p.Exporter = os.Stdout
+			p.Closer = os.Stdout
+		}
 	}
 	return nil
 }

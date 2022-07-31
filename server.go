@@ -41,7 +41,7 @@ func createPDFServerHandler(w http.ResponseWriter, r *http.Request) {
 	var p PDF
 
 	params := urlQueryToMap(r.URL.Query())
-	if err := p.loadSettings(params, w); err != nil {
+	if err := p.loadSettings(params, w, nil); err != nil {
 		// we just log the error and continue with defaults
 		log.Println(err)
 		p.Settings = page.PrintToPDFParams{}
