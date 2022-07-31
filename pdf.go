@@ -12,25 +12,25 @@ import (
 )
 
 type PDF struct {
-	content  []byte
-	Settings page.PrintToPDFParams
-	exporter io.Writer
-	closer   io.Closer
-	filePath string
-	sanitize bool
+	HTMLContent []byte
+	Settings    page.PrintToPDFParams
+	Exporter    io.Writer
+	Closer      io.Closer
+	filePath    string
+	Sanitize    bool
 }
 
 func (p PDF) Export() error {
-	if p.exporter == nil {
+	if p.Exporter == nil {
 		return fmt.Errorf("No exporter set")
 	}
-	_, err := p.exporter.Write(p.content)
+	_, err := p.Exporter.Write(p.HTMLContent)
 	if err != nil {
 		return fmt.Errorf("Could not export PDF: %v", err)
 	}
 	log.Println("PDF exported")
-	if p.closer != nil {
-		p.closer.Close()
+	if p.Closer != nil {
+		p.Closer.Close()
 	}
 	return nil
 }
@@ -59,28 +59,28 @@ func (p *PDF) loadSettings(params map[string]string, w io.Writer) error {
 		return err
 	}
 	if params["sanitize"] == "true" {
-		p.sanitize = true
+		p.Sanitize = true
 	}
 	outputType := strings.ToLower(params["output"])
 	switch outputType {
 	case "file":
 		file, err := p.createFile(params["filename"])
 		if err != nil {
-			p.exporter = w
+			p.Exporter = w
 			return nil
 		}
-		p.exporter = file
-		p.closer = file
+		p.Exporter = file
+		p.Closer = file
 	case "download":
-		p.exporter = w
+		p.Exporter = w
 	case "s3":
 		// TODO: implement
-		p.exporter = w
+		p.Exporter = w
 	case "email":
 		// TODO: implement
-		p.exporter = w
+		p.Exporter = w
 	default:
-		p.exporter = w
+		p.Exporter = w
 	}
 	return nil
 }

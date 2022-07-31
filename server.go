@@ -47,7 +47,7 @@ func createPDFServerHandler(w http.ResponseWriter, r *http.Request) {
 		p.Settings = page.PrintToPDFParams{}
 	}
 	body, err := readRequest(r.Body)
-	if p.sanitize {
+	if p.Sanitize {
 		body = sanitizeHTMLBody(body)
 	}
 	if err != nil {
@@ -61,7 +61,7 @@ func createPDFServerHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	chromePath := path.Join(dir, "chrome-linux", "chrome")
 	p.GenerateWithChrome(body, chromePath)
-	if p.content == nil {
+	if p.HTMLContent == nil {
 		log.Println("Could not generate PDF")
 		http.Error(w, "Could not create PDF", http.StatusInternalServerError)
 		return
