@@ -22,11 +22,11 @@ type PDF struct {
 
 func (p PDF) Export() error {
 	if p.Exporter == nil {
-		return fmt.Errorf("No exporter set")
+		return fmt.Errorf("no exporter set")
 	}
 	_, err := p.Exporter.Write(p.HTMLContent)
 	if err != nil {
-		return fmt.Errorf("Could not export PDF: %v", err)
+		return fmt.Errorf("could not export PDF: %v", err)
 	}
 	log.Println("PDF exported")
 	if p.Closer != nil {
@@ -63,6 +63,12 @@ func (p *PDF) loadSettings(params map[string]string, w io.Writer, c io.Closer) e
 	}
 	if strings.ToLower(params["sanitize"]) == "true" {
 		p.Sanitize = true
+		if p.Settings.HeaderTemplate != "" {
+			p.Settings.HeaderTemplate = string(sanitizeHTML([]byte(p.Settings.HeaderTemplate)))
+		}
+		if p.Settings.FooterTemplate != "" {
+			p.Settings.FooterTemplate = string(sanitizeHTML([]byte(p.Settings.FooterTemplate)))
+		}
 	}
 	outputType := strings.ToLower(params["output"])
 	switch outputType {
