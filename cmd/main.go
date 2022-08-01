@@ -1,7 +1,13 @@
 package main
 
-import "github.com/alexferrari88/lazypress"
+import (
+	"flag"
+
+	"github.com/alexferrari88/lazypress"
+)
 
 func main() {
-	lazypress.InitServer(3444)
+	port := flag.Int("port", 3444, "port to listen on")
+	flag.Parse()
+	lazypress.InitServer(*port)
 }
