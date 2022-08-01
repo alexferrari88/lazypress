@@ -21,7 +21,7 @@ import (
 
 func InitServer(port int) {
 	log.Println("Starting server on port", port)
-	http.HandleFunc("/convert", createPDFServerHandler)
+	http.HandleFunc("/convert", convertHTMLServerHandler)
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil); err != nil {
 		log.Fatal(err)
 	}
@@ -33,8 +33,8 @@ func readRequest(r io.ReadCloser) ([]byte, error) {
 	return body, err
 }
 
-func createPDFServerHandler(w http.ResponseWriter, r *http.Request) {
-	if err := validateCreatePDFRequest(w, r); err != nil {
+func convertHTMLServerHandler(w http.ResponseWriter, r *http.Request) {
+	if err := validateConvertHTMLRequest(w, r); err != nil {
 		log.Println(err)
 		return
 	}
@@ -47,23 +47,33 @@ func createPDFServerHandler(w http.ResponseWriter, r *http.Request) {
 		p.Settings = page.PrintToPDFParams{}
 	}
 	body, err := readRequest(r.Body)
-	if p.Sanitize {
-		body = sanitizeHTMLBody(body)
-	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	if len(body) == 0 {
+		http.Error(w, "Body is empty", http.StatusBadRequest)
+		return
+	}
+	if p.Sanitize {
+		body = sanitizeHTML(body)
+		if len(body) == 0 {
+			http.Error(w, "Body is empty", http.StatusBadRequest)
+			return
+		}
+	}
+
 	// locate chrome executable path
 	dir, dirError := os.Getwd()
 	if dirError != nil {
 		log.Fatalln(dirError)
 	}
 	chromePath := path.Join(dir, "chrome-linux", "chrome")
+
 	p.GenerateWithChrome(body, chromePath)
 	if p.HTMLContent == nil {
 		log.Println("Could not generate PDF")
-		http.Error(w, "Could not create PDF", http.StatusInternalServerError)
+		http.Error(w, "Could not generate PDF", http.StatusInternalServerError)
 		return
 	}
 	if err := p.Export(); err != nil {
@@ -81,24 +91,24 @@ func urlQueryToMap(query url.Values) map[string]string {
 	return params
 }
 
-func validateCreatePDFRequest(w http.ResponseWriter, r *http.Request) error {
+func validateConvertHTMLRequest(w http.ResponseWriter, r *http.Request) error {
 	contentType := r.Header.Get("Content-Type")
 	contentLength := r.Header.Get("Content-Length")
 
 	if r.Method != "POST" {
-		errMsg := "Method not allowed"
+		errMsg := "method not allowed"
 		http.Error(w, errMsg, http.StatusMethodNotAllowed)
 		return errors.New(errMsg)
 	}
 
 	if contentType != "text/plain" && contentType != "text/html" {
-		errMsg := "Content-Type must be text/plain or text/html"
+		errMsg := "content-type must be text/plain or text/html"
 		http.Error(w, errMsg, http.StatusBadRequest)
 		return errors.New(errMsg)
 	}
 
-	if contentLength == "" {
-		errMsg := "Content-Length must be set"
+	if contentLength == "" || contentLength == "0" {
+		errMsg := "content-length must be set"
 		http.Error(w, errMsg, http.StatusBadRequest)
 		return errors.New(errMsg)
 	}
@@ -106,24 +116,24 @@ func validateCreatePDFRequest(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func sanitizeHTMLBody(body []byte) []byte {
+func sanitizeHTML(c []byte) []byte {
 	policy := bluemonday.UGCPolicy()
 	policy.AllowElements("html", "head", "title", "body", "style")
 	policy.AllowAttrs("style").OnElements("body", "table", "tr", "td", "p", "a", "font", "image")
 	policy.AllowAttrs("name").OnElements("meta")
 	policy.AllowAttrs("content").OnElements("meta")
-	return policy.SanitizeBytes(body)
+	return policy.SanitizeBytes(c)
 }
 
-func queryParamsToStruct(params map[string]string, d any, tagStr string) error {
+func queryParamsToStruct(params map[string]string, structToUse any, tagStr string) error {
 	// From https://medium.com/wesionary-team/reflections-tutorial-query-string-to-struct-parser-in-go-b2f858f99ea1
 
 	var err error
-	dType := reflect.TypeOf(d)
+	dType := reflect.TypeOf(structToUse)
 	if dType.Elem().Kind() != reflect.Struct {
 		return errors.New("input must be a struct")
 	}
-	dValue := reflect.ValueOf(d)
+	dValue := reflect.ValueOf(structToUse)
 	for i := 0; i < dType.Elem().NumField(); i++ {
 		field := dType.Elem().Field(i)
 		key := strings.Replace(field.Tag.Get(tagStr), ",omitempty", "", -1)
