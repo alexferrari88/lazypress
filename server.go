@@ -1,6 +1,7 @@
 ﻿package lazypress
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/chromedp/cdproto/page"
+	"github.com/chromedp/chromedp"
 	"github.com/microcosm-cc/bluemonday"
 )
 
@@ -41,7 +43,7 @@ func convertHTMLServerHandler(w http.ResponseWriter, r *http.Request) {
 	var p PDF
 
 	params := urlQueryToMap(r.URL.Query())
-	if err := p.loadSettings(params, w, nil); err != nil {
+	if err := p.LoadSettings(params, w, nil); err != nil {
 		// we just log the error and continue with defaults
 		log.Println(err)
 		p.Settings = page.PrintToPDFParams{}
@@ -69,8 +71,25 @@ func convertHTMLServerHandler(w http.ResponseWriter, r *http.Request) {
 		log.Fatalln(dirError)
 	}
 	chromePath := path.Join(dir, "chrome-linux", "chrome")
+	var allocatorCtx context.Context
+	var allocatorCancel context.CancelFunc
 
-	p.GenerateWithChrome(body, chromePath)
+	if chromePath != "" {
+		opt := []func(allocator *chromedp.ExecAllocator){
+			chromedp.ExecPath(chromePath),
+		}
+
+		// create context
+		allocatorCtx, allocatorCancel = chromedp.NewExecAllocator(
+			context.Background(),
+			append(opt, chromedp.DefaultExecAllocatorOptions[:]...)[:]...,
+		)
+		defer allocatorCancel()
+	} else {
+		allocatorCtx = context.Background()
+	}
+
+	p.GenerateWithChrome(allocatorCtx, body)
 	if p.HTMLContent == nil {
 		log.Println("Could not generate PDF")
 		http.Error(w, "Could not generate PDF", http.StatusInternalServerError)

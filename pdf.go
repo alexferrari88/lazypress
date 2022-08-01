@@ -57,7 +57,7 @@ func (p *PDF) createFile(filename string) (io.WriteCloser, error) {
 	return file, nil
 }
 
-func (p *PDF) loadSettings(params map[string]string, w io.Writer, c io.Closer) error {
+func (p *PDF) LoadSettings(params map[string]string, w io.Writer, c io.Closer) error {
 	if err := queryParamsToStruct(params, &p.Settings, "json"); err != nil {
 		return err
 	}

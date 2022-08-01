@@ -13,40 +13,23 @@ import (
 	"github.com/chromedp/chromedp"
 )
 
-func (p *PDF) GenerateWithChrome(html []byte, execPath string) *PDF {
+func (p *PDF) GenerateWithChrome(ctx context.Context, html []byte) *PDF {
 	var wg sync.WaitGroup
-	var allocatorCtx context.Context
-	var allocatorCancel context.CancelFunc
 
-	if execPath != "" {
-		opt := []func(allocator *chromedp.ExecAllocator){
-			chromedp.ExecPath(execPath),
-		}
-
-		// create context
-		allocatorCtx, allocatorCancel = chromedp.NewExecAllocator(
-			context.Background(),
-			append(opt, chromedp.DefaultExecAllocatorOptions[:]...)[:]...,
-		)
-		defer allocatorCancel()
-	} else {
-		allocatorCtx = context.Background()
-	}
-
-	ctx, cancel := chromedp.NewContext(allocatorCtx)
+	chromeCtx, cancel := chromedp.NewContext(ctx)
 	defer cancel()
 
 	// add a listener for when the page is fully loaded
 	// this allows us to give the page time to render the images as well
 	wg.Add(1)
-	chromedp.ListenTarget(ctx, func(ev interface{}) {
+	chromedp.ListenTarget(chromeCtx, func(ev interface{}) {
 		switch ev.(type) {
 		case *page.EventLoadEventFired:
 			go func() {
 				defer wg.Done()
 
 				// create the pdf
-				if err := chromedp.Run(ctx, chromedp.ActionFunc(func(ctx context.Context) error {
+				if err := chromedp.Run(chromeCtx, chromedp.ActionFunc(func(ctx context.Context) error {
 					buf, _, err := p.Settings.Do(ctx)
 					if err != nil {
 						return err
@@ -75,7 +58,7 @@ func (p *PDF) GenerateWithChrome(html []byte, execPath string) *PDF {
 	}
 
 	// start browser and load html
-	if err := chromedp.Run(ctx, loadHTMLInBrowser(html, htmlFile.Name())); err != nil {
+	if err := chromedp.Run(chromeCtx, loadHTMLInBrowser(html, htmlFile.Name())); err != nil {
 		log.Fatalln(err)
 	}
 

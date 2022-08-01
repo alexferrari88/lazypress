@@ -90,7 +90,7 @@ func TestShouldLoadOutputToFileSetting(t *testing.T) {
 	params := map[string]string{
 		"output": "file",
 	}
-	p.loadSettings(params, nil, nil)
+	p.LoadSettings(params, nil, nil)
 	if p.Exporter.(*os.File) == nil {
 		t.Error("Expected Exporter to be a file")
 	}
@@ -109,7 +109,7 @@ func TestShouldLoadOutputToDownloadSetting(t *testing.T) {
 	params := map[string]string{
 		"output": "download",
 	}
-	p.loadSettings(params, w, nil)
+	p.LoadSettings(params, w, nil)
 	if p.Exporter.(*mockWriter) == nil {
 		t.Error("Expected Exporter to be a mockWriter")
 	}
@@ -125,7 +125,7 @@ func TestShouldLoadPassedWriterAsDefaultExporter(t *testing.T) {
 	var p PDF
 	w := &mockWriter{}
 	c := &mockCloser{}
-	p.loadSettings(map[string]string{}, w, c)
+	p.LoadSettings(map[string]string{}, w, c)
 	if p.Exporter.(*mockWriter) != w {
 		t.Error("Expected Exporter to be the same as the mockWriter")
 	}
@@ -139,7 +139,7 @@ func TestShouldLoadPassedWriterAsDefaultExporter(t *testing.T) {
 
 func TestShouldSetStdoutAsWriterWhenNoWriterPassedAndNoOutputParamPassed(t *testing.T) {
 	var p PDF
-	p.loadSettings(map[string]string{}, nil, nil)
+	p.LoadSettings(map[string]string{}, nil, nil)
 	if p.Exporter.(*os.File) == nil {
 		t.Error("Expected Exporter to be a file")
 	}
@@ -169,7 +169,7 @@ func TestShouldLoadPassedSettings(t *testing.T) {
 		"footerTemplate":      "<span class=date></span>",
 		"preferCSSPageSize":   "true",
 	}
-	p.loadSettings(params, nil, nil)
+	p.LoadSettings(params, nil, nil)
 	if p.Settings.Landscape != true {
 		t.Error("Expected landscape to be true. Got: ", p.Settings.Landscape)
 	}
