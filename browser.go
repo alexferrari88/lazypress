@@ -13,6 +13,10 @@ import (
 	"github.com/chromedp/chromedp"
 )
 
+// GenerateWithChrome creates a PDF from the given HTML using Google Chrome.
+// It accepts a context.Context to allow for cancellation and customization of the Chrome process.
+// It accepts a []byte of HTML to be loaded into the browser.
+// It returns a pointer to a PDF struct.
 func (p *PDF) GenerateWithChrome(ctx context.Context, html []byte) *PDF {
 	var wg sync.WaitGroup
 

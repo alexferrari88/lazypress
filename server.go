@@ -2,7 +2,6 @@
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -10,15 +9,15 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"reflect"
-	"strconv"
-	"strings"
 
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
-	"github.com/microcosm-cc/bluemonday"
 )
 
+// InitServer initializes the server.
+// It takes the port to listen on and the path to the chrome executable.
+// If the chrome executable is not provided, the server will use the default options of [github.com/chromedp/chromedp].
+// The default port is 3444.
 func InitServer(port int, chromePath string) {
 	log.Println("Starting server on port", port)
 	http.HandleFunc("/convert", convertHTMLServerHandler(chromePath))
@@ -57,7 +56,7 @@ func convertHTMLServerHandler(chromePath string) func(w http.ResponseWriter, r *
 			return
 		}
 		if p.Sanitize {
-			body = sanitizeHTML(body)
+			body = SanitizeHTML(body)
 			if len(body) == 0 {
 				http.Error(w, "Body is empty", http.StatusBadRequest)
 				return
@@ -130,77 +129,4 @@ func validateConvertHTMLRequest(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	return nil
-}
-
-func sanitizeHTML(c []byte) []byte {
-	policy := bluemonday.UGCPolicy()
-	policy.AllowElements("html", "head", "title", "body", "style")
-	policy.AllowAttrs("style").OnElements("body", "table", "tr", "td", "p", "a", "font", "image")
-	policy.AllowAttrs("name").OnElements("meta")
-	policy.AllowAttrs("content").OnElements("meta")
-	return policy.SanitizeBytes(c)
-}
-
-func queryParamsToStruct(params map[string]string, structToUse any, tagStr string) error {
-	// From https://medium.com/wesionary-team/reflections-tutorial-query-string-to-struct-parser-in-go-b2f858f99ea1
-
-	var err error
-	dType := reflect.TypeOf(structToUse)
-	if dType.Elem().Kind() != reflect.Struct {
-		return errors.New("input must be a struct")
-	}
-	dValue := reflect.ValueOf(structToUse)
-	for i := 0; i < dType.Elem().NumField(); i++ {
-		field := dType.Elem().Field(i)
-		key := strings.Replace(field.Tag.Get(tagStr), ",omitempty", "", -1)
-		kind := field.Type.Kind()
-
-		settingVal, ok := params[key]
-		if !ok {
-			continue
-		}
-
-		fieldVal := dValue.Elem().Field(i)
-
-		switch kind {
-		case reflect.String:
-			if fieldVal.CanSet() {
-				fieldVal.SetString(settingVal)
-			}
-		case reflect.Int:
-			intVal, err := strconv.ParseInt(settingVal, 10, 64)
-			if err != nil {
-				return err
-			}
-			if fieldVal.CanSet() {
-				fieldVal.SetInt(intVal)
-			}
-		case reflect.Bool:
-			boolVal, err := strconv.ParseBool(settingVal)
-			if err != nil {
-				return err
-			}
-			if fieldVal.CanSet() {
-				fieldVal.SetBool(boolVal)
-			}
-		case reflect.Float64:
-			floatVal, err := strconv.ParseFloat(settingVal, 64)
-			if err != nil {
-				return err
-			}
-			if fieldVal.CanSet() {
-				fieldVal.SetFloat(floatVal)
-			}
-		case reflect.Struct:
-			if fieldVal.CanSet() {
-				val := reflect.New(field.Type)
-				err := json.Unmarshal([]byte(settingVal), val.Interface())
-				if err != nil {
-					return err
-				}
-				fieldVal.Set(val.Elem())
-			}
-		}
-	}
-	return err
 }
