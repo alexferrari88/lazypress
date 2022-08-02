@@ -12,19 +12,19 @@ import (
 )
 
 type PDF struct {
-	HTMLContent []byte
-	Settings    page.PrintToPDFParams
-	Exporter    io.Writer
-	Closer      io.Closer
-	filePath    string
-	Sanitize    bool
+	Content  []byte
+	Settings page.PrintToPDFParams
+	Exporter io.Writer
+	Closer   io.Closer
+	filePath string
+	Sanitize bool
 }
 
 func (p PDF) Export() error {
 	if p.Exporter == nil {
 		return fmt.Errorf("no exporter set")
 	}
-	_, err := p.Exporter.Write(p.HTMLContent)
+	_, err := p.Exporter.Write(p.Content)
 	if err != nil {
 		return fmt.Errorf("could not export PDF: %v", err)
 	}

@@ -83,7 +83,7 @@ func convertHTMLServerHandler(w http.ResponseWriter, r *http.Request) {
 	defer allocatorCancel()
 
 	p.GenerateWithChrome(allocatorCtx, body)
-	if p.HTMLContent == nil {
+	if p.Content == nil {
 		log.Println("Could not generate PDF")
 		http.Error(w, "Could not generate PDF", http.StatusInternalServerError)
 		return

@@ -34,7 +34,7 @@ func (p *PDF) GenerateWithChrome(ctx context.Context, html []byte) *PDF {
 					if err != nil {
 						return err
 					}
-					p.HTMLContent = buf
+					p.Content = buf
 					log.Println("PDF content created")
 					return nil
 				})); err != nil {

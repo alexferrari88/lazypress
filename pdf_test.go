@@ -37,7 +37,7 @@ func TestShouldWriteWithExporter(t *testing.T) {
 	m := &mockWriter{}
 	p.Exporter = m
 	content := []byte("<html><body>Hello World</body></html>")
-	p.HTMLContent = content
+	p.Content = content
 	if err := p.Export(); err != nil {
 		t.Error("Expected no error when exporting")
 	}
