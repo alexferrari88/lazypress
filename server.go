@@ -20,8 +20,9 @@ import (
 // The default port is 3444.
 func InitServer(port int, chromePath string) {
 	log.Println("Starting server on port", port)
-	http.HandleFunc("/convert", convertHTMLServerHandler(chromePath))
-	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil); err != nil {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/convert", convertHTMLServerHandler(chromePath))
+	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), mux); err != nil {
 		log.Fatal(err)
 	}
 }
