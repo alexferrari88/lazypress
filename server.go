@@ -19,9 +19,9 @@ import (
 	"github.com/microcosm-cc/bluemonday"
 )
 
-func InitServer(port int) {
+func InitServer(port int, chromePath string) {
 	log.Println("Starting server on port", port)
-	http.HandleFunc("/convert", convertHTMLServerHandler)
+	http.HandleFunc("/convert", convertHTMLServerHandler(chromePath))
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil); err != nil {
 		log.Fatal(err)
 	}
@@ -33,65 +33,65 @@ func readRequest(r io.ReadCloser) ([]byte, error) {
 	return body, err
 }
 
-func convertHTMLServerHandler(w http.ResponseWriter, r *http.Request) {
-	if err := validateConvertHTMLRequest(w, r); err != nil {
-		log.Println(err)
-		return
-	}
-	var p PDF
+func convertHTMLServerHandler(chromePath string) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if err := validateConvertHTMLRequest(w, r); err != nil {
+			log.Println(err)
+			return
+		}
+		var p PDF
 
-	params := urlQueryToMap(r.URL.Query())
-	if err := p.LoadSettings(params, w, nil); err != nil {
-		// we just log the error and continue with defaults
-		log.Println(err)
-		p.Settings = page.PrintToPDFParams{}
-	}
-	body, err := readRequest(r.Body)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if len(body) == 0 {
-		http.Error(w, "Body is empty", http.StatusBadRequest)
-		return
-	}
-	if p.Sanitize {
-		body = sanitizeHTML(body)
+		params := urlQueryToMap(r.URL.Query())
+		if err := p.LoadSettings(params, w, nil); err != nil {
+			// we just log the error and continue with defaults
+			log.Println(err)
+			p.Settings = page.PrintToPDFParams{}
+		}
+		body, err := readRequest(r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		if len(body) == 0 {
 			http.Error(w, "Body is empty", http.StatusBadRequest)
 			return
 		}
-	}
+		if p.Sanitize {
+			body = sanitizeHTML(body)
+			if len(body) == 0 {
+				http.Error(w, "Body is empty", http.StatusBadRequest)
+				return
+			}
+		}
 
-	var allocatorCtx context.Context
-	var allocatorCancel context.CancelFunc
+		var allocatorCtx context.Context
+		var allocatorCancel context.CancelFunc
 
-	opt := []chromedp.ExecAllocatorOption{
-		chromedp.Headless,
-		chromedp.NoSandbox,
-		chromedp.Flag("disable-setuid-sandbox", true),
-		chromedp.Flag("disable-dev-shm-usage", true),
-		chromedp.Flag("single-process", true),
-		chromedp.Flag("no-zygote", true),
-	}
+		if chromePath != "" {
+			opt := []func(allocator *chromedp.ExecAllocator){
+				chromedp.ExecPath(chromePath),
+			}
+			// create context
+			allocatorCtx, allocatorCancel = chromedp.NewExecAllocator(
+				context.Background(),
+				append(opt, chromedp.DefaultExecAllocatorOptions[:]...)[:]...,
+			)
+			defer allocatorCancel()
+		} else {
+			allocatorCtx = context.Background()
+		}
 
-	// create context
-	allocatorCtx, allocatorCancel = chromedp.NewExecAllocator(
-		context.Background(),
-		append(opt, chromedp.DefaultExecAllocatorOptions[:]...)[:]...,
-	)
-	defer allocatorCancel()
-
-	p.GenerateWithChrome(allocatorCtx, body)
-	if p.Content == nil {
-		log.Println("Could not generate PDF")
-		http.Error(w, "Could not generate PDF", http.StatusInternalServerError)
-		return
-	}
-	if err := p.Export(); err != nil {
-		log.Println(err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		p.GenerateWithChrome(allocatorCtx, body)
+		if p.Content == nil {
+			log.Println("Could not generate PDF")
+			http.Error(w, "Could not generate PDF", http.StatusInternalServerError)
+			return
+		}
+		if err := p.Export(); err != nil {
+			log.Println(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 }
 

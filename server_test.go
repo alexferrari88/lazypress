@@ -2,8 +2,11 @@
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path"
 	"strings"
 	"testing"
 )
@@ -17,7 +20,13 @@ func TestShouldDownloadPDFWhenNoOutputParam(t *testing.T) {
 	req.Header.Set("Content-Type", "text/html")
 	req.Header.Set("Content-Length", fmt.Sprint((len(html))))
 	w := httptest.NewRecorder()
-	convertHTMLServerHandler(w, req)
+	// locate chrome executable path
+	dir, dirError := os.Getwd()
+	if dirError != nil {
+		log.Fatalln(dirError)
+	}
+	chromePath := path.Join(dir, "chrome-linux", "chrome")
+	convertHTMLServerHandler(chromePath)(w, req)
 	result := w.Result()
 	defer result.Body.Close()
 	if result.Header.Get("Content-Type") != "application/pdf" {
@@ -35,7 +44,13 @@ func TestShouldReturnErrorWhenContentTypeIsNotAllowed(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Length", fmt.Sprint((len(html))))
 	w := httptest.NewRecorder()
-	convertHTMLServerHandler(w, req)
+	// locate chrome executable path
+	dir, dirError := os.Getwd()
+	if dirError != nil {
+		log.Fatalln(dirError)
+	}
+	chromePath := path.Join(dir, "chrome-linux", "chrome")
+	convertHTMLServerHandler(chromePath)(w, req)
 	result := w.Result()
 	defer result.Body.Close()
 	if result.StatusCode != http.StatusBadRequest {
@@ -52,7 +67,13 @@ func TestShouldReturnErrorWhenContentLenghtIsZero(t *testing.T) {
 	req.Header.Set("Content-Type", "text/html")
 	req.Header.Set("Content-Length", "0")
 	w := httptest.NewRecorder()
-	convertHTMLServerHandler(w, req)
+	// locate chrome executable path
+	dir, dirError := os.Getwd()
+	if dirError != nil {
+		log.Fatalln(dirError)
+	}
+	chromePath := path.Join(dir, "chrome-linux", "chrome")
+	convertHTMLServerHandler(chromePath)(w, req)
 	result := w.Result()
 	defer result.Body.Close()
 	if result.StatusCode != http.StatusBadRequest {
@@ -74,7 +95,13 @@ func TestShouldReturnErrorWhenRequestBodyIsEmpty(t *testing.T) {
 	// a non-zero value.
 	req.Header.Set("Content-Length", "42")
 	w := httptest.NewRecorder()
-	convertHTMLServerHandler(w, req)
+	// locate chrome executable path
+	dir, dirError := os.Getwd()
+	if dirError != nil {
+		log.Fatalln(dirError)
+	}
+	chromePath := path.Join(dir, "chrome-linux", "chrome")
+	convertHTMLServerHandler(chromePath)(w, req)
 	result := w.Result()
 	defer result.Body.Close()
 	if result.StatusCode != http.StatusBadRequest {
@@ -91,7 +118,13 @@ func TestShouldReturnErrorIfSanitizationIsOnAndContentIsAllScript(t *testing.T) 
 	req.Header.Set("Content-Type", "text/html")
 	req.Header.Set("Content-Length", fmt.Sprint((len(html))))
 	w := httptest.NewRecorder()
-	convertHTMLServerHandler(w, req)
+	// locate chrome executable path
+	dir, dirError := os.Getwd()
+	if dirError != nil {
+		log.Fatalln(dirError)
+	}
+	chromePath := path.Join(dir, "chrome-linux", "chrome")
+	convertHTMLServerHandler(chromePath)(w, req)
 	result := w.Result()
 	defer result.Body.Close()
 	if result.StatusCode != http.StatusBadRequest {
@@ -108,7 +141,13 @@ func TestShouldNotReturnErrorIfSanitizationIsOffAndContentIsAllScript(t *testing
 	req.Header.Set("Content-Type", "text/html")
 	req.Header.Set("Content-Length", fmt.Sprint((len(html))))
 	w := httptest.NewRecorder()
-	convertHTMLServerHandler(w, req)
+	// locate chrome executable path
+	dir, dirError := os.Getwd()
+	if dirError != nil {
+		log.Fatalln(dirError)
+	}
+	chromePath := path.Join(dir, "chrome-linux", "chrome")
+	convertHTMLServerHandler(chromePath)(w, req)
 	result := w.Result()
 	defer result.Body.Close()
 	if result.StatusCode != http.StatusOK {
