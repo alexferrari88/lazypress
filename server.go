@@ -10,8 +10,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"os"
-	"path"
 	"reflect"
 	"strconv"
 	"strings"
@@ -65,29 +63,24 @@ func convertHTMLServerHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// locate chrome executable path
-	dir, dirError := os.Getwd()
-	if dirError != nil {
-		log.Fatalln(dirError)
-	}
-	chromePath := path.Join(dir, "chrome-linux", "chrome")
 	var allocatorCtx context.Context
 	var allocatorCancel context.CancelFunc
 
-	if chromePath != "" {
-		opt := []func(allocator *chromedp.ExecAllocator){
-			chromedp.ExecPath(chromePath),
-		}
-
-		// create context
-		allocatorCtx, allocatorCancel = chromedp.NewExecAllocator(
-			context.Background(),
-			append(opt, chromedp.DefaultExecAllocatorOptions[:]...)[:]...,
-		)
-		defer allocatorCancel()
-	} else {
-		allocatorCtx = context.Background()
+	opt := []chromedp.ExecAllocatorOption{
+		chromedp.Headless,
+		chromedp.NoSandbox,
+		chromedp.Flag("disable-setuid-sandbox", true),
+		chromedp.Flag("disable-dev-shm-usage", true),
+		chromedp.Flag("single-process", true),
+		chromedp.Flag("no-zygote", true),
 	}
+
+	// create context
+	allocatorCtx, allocatorCancel = chromedp.NewExecAllocator(
+		context.Background(),
+		append(opt, chromedp.DefaultExecAllocatorOptions[:]...)[:]...,
+	)
+	defer allocatorCancel()
 
 	p.GenerateWithChrome(allocatorCtx, body)
 	if p.HTMLContent == nil {
