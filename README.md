@@ -32,7 +32,13 @@ lazypress
 By default, the server is listening on port `3444`. You can change the port by running:
 
 ```bash
-lazypress -p PORT
+lazypress --port PORT
+```
+
+You can also pass a custom path for Google chrome:
+
+```bash
+lazypress --chrome CHROME_PATH
 ```
 
 Once the server is started, you can send POST requests to the `/convert` endpoint.
@@ -124,7 +130,8 @@ Please, refer to the previous question.
 
 - [https://github.com/chromedp/chromedp](https://github.com/chromedp/chromedp): for providing headless Chrome
 - [https://github.com/microcosm-cc/bluemonday/](https://github.com/microcosm-cc/bluemonday/): for providing an HTML sanitizer
+- my wife: for bearing with me 🤗
 
-## Contributing 🤗
+## Contributing 🤝🏼
 
 Contributions are always welcome! Just send a PR and after a review, I will be glad to merge your changes!
