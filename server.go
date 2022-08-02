@@ -92,6 +92,10 @@ func convertHTMLServerHandler(chromePath string) func(w http.ResponseWriter, r *
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		if p.filePath != "" {
+			w.Header().Add("Content-Type", "application/json")
+			w.Write([]byte(fmt.Sprintf("{\"file\": \"%s\"}", p.filePath)))
+		}
 	}
 }
 

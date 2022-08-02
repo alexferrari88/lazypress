@@ -29,6 +29,9 @@ func (p PDF) Export() error {
 		return fmt.Errorf("could not export PDF: %v", err)
 	}
 	log.Println("PDF exported")
+	if p.filePath != "" {
+		log.Println("PDF saved to", p.filePath)
+	}
 	if p.Closer != nil {
 		p.Closer.Close()
 	}
@@ -53,7 +56,6 @@ func (p *PDF) createFile(filename string) (io.WriteCloser, error) {
 		log.Fatal(err)
 	}
 	p.filePath = file.Name()
-	log.Println("Created file", p.filePath)
 	return file, nil
 }
 
